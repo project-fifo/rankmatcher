@@ -15,6 +15,47 @@
 -export([match/3,
          apply_scales/1]).
 
+
+
+-type rankmatcher_weighting() :: cant |
+                                 must |
+                                 integer().
+
+-type rankmatcher_flat_condition() ::
+        '=<' | '>' | '=<' | '<' | '=:=' | '=/='.
+
+-type rankmatcher_set_condition() ::
+        'subset' | 'superset' | 'disjoint' | 'element'.
+
+-type rankmatcher_permission_condition() ::
+        'allowed'.
+
+-type rankmatcher_flat_reference() ::
+        binary() | ordsets:ordset(term()) | number() | tuple().
+
+-type rankmatcher_set_reference() ::
+        ordsets:ordset(term()).
+
+-type rankmatcher_permission_reference() ::
+        [libsnarlmatch:permission()].
+
+
+-type rankmatcher_rule() ::
+        {rand, Min::integer(), Max::integer()} |
+        {scale, Attribute::binary(), Low::integer(), High::integer()} |
+        {Weight::rankmatcher_weighting(), Attribute::binary(),
+         Condituion::rankmatcher_flat_condition(),
+         Reference::rankmatcher_flat_reference()} |
+        {Weight::rankmatcher_weighting(), Attribute::binary(),
+         Condituion::rankmatcher_set_condition(),
+         Reference::rankmatcher_set_reference()} |
+        {Weight::rankmatcher_weighting(),
+         Permission::[binary() | {binary(), binary()}],
+         Condituion::rankmatcher_permission_condition(),
+         Reference::rankmatcher_permission_reference()}.
+
+-export_type([rankmatcher_rule/0]).
+
 apply_scales([]) ->
     [];
 
@@ -23,7 +64,11 @@ apply_scales([{{_, []}, _} | _] = Res) ->
 
 apply_scales([{{_, [{scale, _, V, _, _} | _]}, _} | _] = Res) ->
     {_, _, R} = apply_scale(Res, V, V),
-    apply_scales(R).
+    apply_scales(R);
+
+apply_scales([{{_, [{random, _, _} | _]}, _} | _] = Res) ->
+    random:seed(erlang:now()),
+    apply_scales(apply_random(Res)).
 
 apply_scale([{{N, [{scale, _, V, Low, High} | RScales] }, Key} | R],
             Min, Max) when V < Min->
@@ -43,6 +88,14 @@ apply_scale([{{N, [{scale, _, V, Low, High} | RScales] }, Key} | R],
 apply_scale([], Min, Max) ->
     {Min, Max, []}.
 
+apply_random([]) ->
+    [];
+
+apply_random([{{N, [{random, Min, Max} | RScales] }, Key} | R]) ->
+    Rand = Min + random:uniform(Max - Min) -1,
+    [{{N + Rand, RScales}, Key} | apply_random(R)].
+
+
 scale(Low, High, Min, Max, V) ->
     DOut = High - Low,
     DIn = case Max - Min of
@@ -51,8 +104,6 @@ scale(Low, High, Min, Max, V) ->
               R ->
                   R
           end,
-    io:format("~p + ((~p - ~p) / ~p) * ~p",
-              [Low, V, Min, DIn, DOut]),
     round(Low + ((V - Min) / DIn) * DOut).
 
 match(Element, Getter, [{must, Op, Res, V}]) ->
@@ -63,6 +114,9 @@ match(Element, Getter, [{cant, Op, Res, V}]) ->
 
 match(Element, Getter, [{scale, Res, Min, Max}]) ->
     {0, [{scale, Res, Getter(Element, Res), Min, Max}]};
+
+match(_Element, _Getter, [{random, Min, Max}]) ->
+    {0, [{random, Min, Max}]};
 
 match(Element, Getter, [{N, Op, Res, V}]) when is_integer(N) ->
     case match(Element, Getter, {Op, Res, V}) of
@@ -84,6 +138,14 @@ match(Element, Getter, [{scale, Res, Min, Max} | R]) ->
             false;
         {N, Scales} when is_integer(N) ->
             {N, [{scale, Res, Getter(Element, Res), Min, Max} | Scales]}
+    end;
+
+match(Element, Getter, [{random, Min, Max} | R]) ->
+    case match(Element, Getter, R) of
+        false ->
+            false;
+        {N, Scales} when is_integer(N) ->
+            {N, [{random, Min, Max} | Scales]}
     end;
 
 match(Element, Getter, [{N, Op, Res, V} | R]) when is_integer(N) ->
@@ -138,7 +200,7 @@ match(Element, Getter, {'element', Resource, Value}) ->
       ordsets:from_list(Getter(Element, Resource)));
 
 match(Element, Getter, {'allowed', Perission, Permissions}) ->
-    libsnarl:test(create_permission(Element, Getter, Perission, []), Permissions).
+    libsnarlmatch:match(create_permission(Element, Getter, Perission, []), Permissions).
 
 create_permission(_, _, [], Out) ->
     lists:reverse(Out);
@@ -381,6 +443,19 @@ scale_full_test() ->
          [{{0, [{scale, <<"num-res">>, 0, 0, 10}]}, a},
           {{0, [{scale, <<"num-res">>, 1024, 0, 10}]}, b},
           {{0, [{scale, <<"num-res">>, 2048, 0, 10}]}, c}])).
+
+random_test() ->
+    [{A, a}, {B, b}, {C, c}] =
+        apply_scales(
+          [{{0, [{random, 0, 10}]}, a},
+           {{0, [{random, 0, 10}]}, b},
+           {{0, [{random, 0, 10}]}, c}]),
+    ?assert(A >= 0),
+    ?assert(A =< 10),
+    ?assert(B >= 0),
+    ?assert(B =< 10),
+    ?assert(C >= 0),
+    ?assert(C =< 10).
 
 create_permission_test() ->
     ?assertEqual(create_permission(test_hypervisort(), fun test_getter/2, [some, permission], []), [some, permission]),
