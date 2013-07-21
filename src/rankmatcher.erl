@@ -15,8 +15,6 @@
 -export([match/3,
          apply_scales/1]).
 
-
-
 -type rankmatcher_weighting() :: cant |
                                  must |
                                  integer().
@@ -200,7 +198,7 @@ match(Element, Getter, {'element', Resource, Value}) ->
       ordsets:from_list(Getter(Element, Resource)));
 
 match(Element, Getter, {'allowed', Perission, Permissions}) ->
-    libsnarlmatch:match(create_permission(Element, Getter, Perission, []), Permissions).
+    libsnarlmatch:test_perms(create_permission(Element, Getter, Perission, []), Permissions).
 
 create_permission(_, _, [], Out) ->
     lists:reverse(Out);
