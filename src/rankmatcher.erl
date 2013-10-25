@@ -124,6 +124,9 @@ match(Element, Getter, [{N, Op, Res, V}]) when is_integer(N) ->
             {0, []}
     end;
 
+match(_, _, [])  ->
+    {0, []};
+
 match(Element, Getter, [{must, Op, Res, V} | R]) ->
     match(Element, Getter, {Op, Res, V}) andalso match(Element, Getter, R);
 
@@ -454,6 +457,12 @@ random_test() ->
     ?assert(B =< 10),
     ?assert(C >= 0),
     ?assert(C =< 10).
+
+empty_test() ->
+    ?assertEqual({0, []},
+                 match(test_hypervisort(),
+                       fun test_getter/2,
+                       [])).
 
 create_permission_test() ->
     ?assertEqual(create_permission(test_hypervisort(), fun test_getter/2, [some, permission], []), [some, permission]),
