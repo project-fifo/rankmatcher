@@ -23,7 +23,7 @@
         '=<' | '>' | '=<' | '<' | '=:=' | '=/='.
 
 -type rankmatcher_set_condition() ::
-        'subset' | 'superset' | 'disjoint' | 'element'.
+        'subset' | 'superset' | 'disjoint' | 'element' | 'oneof'.
 
 -type rankmatcher_permission_condition() ::
         'allowed'.
@@ -200,6 +200,11 @@ match(Element, Getter, {'element', Resource, Value}) ->
       Value,
       ordsets:from_list(Getter(Element, Resource)));
 
+match(Element, Getter, {'oneof', Resource, Value}) ->
+    ordsets:is_element(
+      Getter(Element, Resource),
+      ordsets:from_list(Value));
+
 match(Element, Getter, {'allowed', Perission, Permissions}) ->
     libsnarlmatch:test_perms(create_permission(Element, Getter, Perission, []), Permissions).
 
@@ -226,6 +231,14 @@ test_getter({Name, _}, <<"name">>) ->
 
 test_getter({_, Resources}, Resource) ->
     dict:fetch(Resource, Resources).
+
+oneof_test() ->
+    ?assert(match(test_hypervisort(),
+                  fun test_getter/2,
+                  {'oneof', <<"num-res">>, [1023, 1024, 1025]})),
+    ?assertNot(match(test_hypervisort(),
+                     fun test_getter/2,
+                     {'oneof', <<"num-res">>, [1023, 1025, 1026]})).
 
 number_gt_test() ->
     ?assert(match(test_hypervisort(),
