@@ -25,6 +25,9 @@
 -type rankmatcher_set_condition() ::
         'subset' | 'superset' | 'disjoint' | 'element' | 'oneof'.
 
+-type rankmatcher_dist_condition() ::
+        {'min-distance', [{binary(), integer()}]} | {'max-distance', [{binary(), integer()}]}.
+
 -type rankmatcher_permission_condition() ::
         'allowed'.
 
@@ -37,6 +40,10 @@
 -type rankmatcher_permission_reference() ::
         [libsnarlmatch:permission()].
 
+-type rankmatcher_dist_reference() ::
+        integer().
+
+
 
 -type rankmatcher_rule() ::
         {rand, Min::integer(), Max::integer()} |
@@ -47,6 +54,9 @@
         {Weight::rankmatcher_weighting(), Attribute::binary(),
          Condituion::rankmatcher_set_condition(),
          Reference::rankmatcher_set_reference()} |
+        {Weight::rankmatcher_weighting(), Attribute::binary(),
+         Condituion::rankmatcher_dist_condition(),
+         Reference::rankmatcher_dist_reference()} |
         {Weight::rankmatcher_weighting(),
          Permission::[binary() | {binary(), binary()}],
          Condituion::rankmatcher_permission_condition(),
@@ -180,6 +190,12 @@ match(Element, Getter, {'=:=', Resource, Value}) ->
 match(Element, Getter, {'=/=', Resource, Value}) ->
     Getter(Element, Resource) =/= Value;
 
+match(Element, Getter, {{'min-distance', Path}, Resource, Value}) ->
+    distance(Path, Getter(Element, Resource)) >= Value;
+
+match(Element, Getter, {{'max-distance', Path}, Resource, Value}) ->
+    distance(Path, Getter(Element, Resource)) =< Value;
+
 match(Element, Getter, {'subset', Resource, Value}) ->
     ordsets:is_subset(
       ordsets:from_list(Value),
@@ -217,12 +233,19 @@ create_permission(Element, Getter, [{<<"res">>, R} | In], Out) ->
 create_permission(Element, Getter, [P | In], Out) ->
     create_permission(Element, Getter, In, [ P | Out]).
 
+distance([A | Ra], [A | Rb]) ->
+    distance(Ra, Rb);
+
+distance(A, B) ->
+    lists:sum([V || {_, V} <- A]) + lists:sum([V || {_, V} <- B]).
+
 -ifdef(TEST).
 
 test_hypervisort() ->
     {<<"test-hypervisor">>,
      dict:from_list(
-       [{<<"num-res">>, 1024},
+       [{<<"path">>, [{<<"a">>, 3}, {<<"b">>, 2}, {<<"c">>, 1}]},
+        {<<"num-res">>, 1024},
         {<<"set-res">>, [1,2,3]},
         {<<"str-res">>, <<"str">>}])}.
 
@@ -356,6 +379,7 @@ multi_must_two_ok_test() ->
                        fun test_getter/2,
                        [{must, '=<', <<"num-res">>, 1024},
                         {must, '=:=', <<"num-res">>, 1024}])).
+
 multi_must_one_not_ok_test() ->
     ?assertEqual(false,
                  match(test_hypervisort(),
@@ -486,5 +510,47 @@ create_permission_res_test() ->
 
 create_permission_name_test() ->
     ?assertEqual(create_permission(test_hypervisort(), fun test_getter/2, [some, {<<"res">>, <<"name">>}, permission], []), [some, <<"test-hypervisor">>, permission]).
+
+%% {<<"path">>, [{<<"a">>, 3}, {<<"b">>, 2}, {<<"c">>, 1}]}
+min_max_distance_test() ->
+    P1 = [{<<"a">>, 3}, {<<"b">>, 2}, {<<"c">>, 1}],
+    P2 = [{<<"a">>, 3}, {<<"b">>, 2}, {<<"d">>, 1}],
+    P3 = [{<<"a">>, 3}, {<<"a">>, 2}, {<<"d">>, 1}],
+    ?assertEqual({0, []},
+                 match(test_hypervisort(),
+                       fun test_getter/2,
+                       [{must, {'max-distance', P1}, <<"path">>, 1}])),
+    ?assertEqual(false,
+                 match(test_hypervisort(),
+                       fun test_getter/2,
+                       [{must, {'min-distance', P1}, <<"path">>, 1}])),
+    %% Dist(P1, P2) should be 2
+    ?assertEqual({0, []},
+                 match(test_hypervisort(),
+                       fun test_getter/2,
+                       [{must, {'max-distance', P2}, <<"path">>, 2}])),
+    ?assertEqual(false,
+                 match(test_hypervisort(),
+                       fun test_getter/2,
+                       [{must, {'max-distance', P2}, <<"path">>, 1}])),
+    %% Dist(P1, P3) should be 6
+    ?assertEqual({0, []},
+                 match(test_hypervisort(),
+                       fun test_getter/2,
+                       [{must, {'min-distance', P3}, <<"path">>, 5}])),
+    ?assertEqual(false,
+                 match(test_hypervisort(),
+                       fun test_getter/2,
+                       [{must, {'min-distance', P3}, <<"path">>, 7}])),
+    ok.
+
+distance_test() ->
+    P1 = [{a, 1}, {b, 2}, {c, 3}],
+    P2 = [{a, 1}, {d, 4}, {c, 5}],
+    P3 = [{a, 1}, {b, 2}, {d, 4}],
+    ?assertEqual(0, distance(P1, P1)),
+    ?assertEqual(14, distance(P1, P2)),
+    ?assertEqual(7, distance(P1, P3)).
+
 
 -endif.
