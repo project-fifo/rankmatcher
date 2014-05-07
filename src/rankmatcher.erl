@@ -502,8 +502,11 @@ empty_test() ->
                        [])).
 
 create_permission_test() ->
-    ?assertEqual(create_permission(test_hypervisort(), fun test_getter/2, [some, permission], []), [some, permission]),
-    ?assertEqual(create_permission(test_hypervisort(), fun test_getter/2, [some, <<"test">>, permission], []), [some, <<"test">>, permission]).
+    ?assertEqual(create_permission(test_hypervisort(), fun test_getter/2,
+                                   [some, permission], []), [some, permission]),
+    ?assertEqual(create_permission(test_hypervisort(), fun test_getter/2,
+                                   [some, <<"test">>, permission], []),
+                 [some, <<"test">>, permission]).
 
 create_permission_res_test() ->
     ?assertEqual(create_permission(test_hypervisort(), fun test_getter/2, [some, {<<"res">>, <<"str-res">>}, permission], []), [some, <<"str">>, permission]).
@@ -511,7 +514,6 @@ create_permission_res_test() ->
 create_permission_name_test() ->
     ?assertEqual(create_permission(test_hypervisort(), fun test_getter/2, [some, {<<"res">>, <<"name">>}, permission], []), [some, <<"test-hypervisor">>, permission]).
 
-%% {<<"path">>, [{<<"a">>, 3}, {<<"b">>, 2}, {<<"c">>, 1}]}
 min_max_distance_test() ->
     P1 = [{<<"a">>, 3}, {<<"b">>, 2}, {<<"c">>, 1}],
     P2 = [{<<"a">>, 3}, {<<"b">>, 2}, {<<"d">>, 1}],
@@ -548,6 +550,7 @@ distance_test() ->
     P1 = [{a, 1}, {b, 2}, {c, 3}],
     P2 = [{a, 1}, {d, 4}, {c, 5}],
     P3 = [{a, 1}, {b, 2}, {d, 4}],
+    ?assertEqual(6, distance([], P1)),
     ?assertEqual(0, distance(P1, P1)),
     ?assertEqual(14, distance(P1, P2)),
     ?assertEqual(7, distance(P1, P3)).
