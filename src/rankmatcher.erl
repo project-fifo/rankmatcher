@@ -19,6 +19,8 @@
                                  must |
                                  integer().
 
+-type path() :: [{binary(), integer()}].
+
 -type rankmatcher_flat_condition() ::
         '=<' | '>' | '=<' | '<' | '=:=' | '=/='.
 
@@ -26,7 +28,7 @@
         'subset' | 'superset' | 'disjoint' | 'element' | 'oneof'.
 
 -type rankmatcher_dist_condition() ::
-        {'min-distance', [{binary(), integer()}]} | {'max-distance', [{binary(), integer()}]}.
+        {'min-distance', path()} | {'max-distance', path()}.
 
 -type rankmatcher_permission_condition() ::
         'allowed'.
@@ -35,7 +37,7 @@
         binary() | ordsets:ordset(term()) | number() | tuple().
 
 -type rankmatcher_set_reference() ::
-        ordsets:ordset(term()).
+        ordsets:ordset(term()) | path().
 
 -type rankmatcher_permission_reference() ::
         [libsnarlmatch:permission()].
@@ -46,8 +48,9 @@
 
 
 -type rankmatcher_rule() ::
-        {rand, Min::integer(), Max::integer()} |
-        {scale, Attribute::binary(), Low::integer(), High::integer()} |
+        {'rand', Min::integer(), Max::integer()} |
+        {'scale', Attribute::binary(), Low::integer(), High::integer()} |
+        {'scale-distance', Path::path(), Attribute::binary(), Low::integer(), High::integer()} |
         {Weight::rankmatcher_weighting(), Attribute::binary(),
          Condituion::rankmatcher_flat_condition(),
          Reference::rankmatcher_flat_reference()} |
@@ -149,6 +152,14 @@ match(Element, Getter, [{scale, Res, Min, Max} | R]) ->
             false;
         {N, Scales} when is_integer(N) ->
             {N, [{scale, Res, Getter(Element, Res), Min, Max} | Scales]}
+    end;
+
+match(Element, Getter, [{'scale-distance', Path, Res, Min, Max} | R]) ->
+    case match(Element, Getter, R) of
+        false ->
+            false;
+        {N, Scales} when is_integer(N) ->
+            {N, [{scale, Res, distance(Path, Getter(Element, Res)), Min, Max} | Scales]}
     end;
 
 match(Element, Getter, [{random, Min, Max} | R]) ->
@@ -482,6 +493,14 @@ scale_full_test() ->
           {{0, [{scale, <<"num-res">>, 1024, 0, 10}]}, b},
           {{0, [{scale, <<"num-res">>, 2048, 0, 10}]}, c}])).
 
+scale_reverse_test() ->
+    ?assertEqual(
+       [{10, a}, {5, b}, {0, c}],
+       apply_scales(
+         [{{0, [{scale, <<"num-res">>, 0, 10, 0}]}, a},
+          {{0, [{scale, <<"num-res">>, 1024, 10, 0}]}, b},
+          {{0, [{scale, <<"num-res">>, 2048, 10, 0}]}, c}])).
+
 random_test() ->
     [{A, a}, {B, b}, {C, c}] =
         apply_scales(
@@ -514,6 +533,32 @@ create_permission_res_test() ->
 create_permission_name_test() ->
     ?assertEqual(create_permission(test_hypervisort(), fun test_getter/2, [some, {<<"res">>, <<"name">>}, permission], []), [some, <<"test-hypervisor">>, permission]).
 
+raw_distance_test() ->
+    P1 = [{a, 1}, {b, 2}, {c, 3}],
+    P2 = [{a, 1}, {d, 4}, {c, 5}],
+    P3 = [{a, 1}, {b, 2}, {d, 4}],
+    ?assertEqual(6, distance([], P1)),
+    ?assertEqual(0, distance(P1, P1)),
+    ?assertEqual(14, distance(P1, P2)),
+    ?assertEqual(7, distance(P1, P3)).
+
+scale_distance_test() ->
+    P1 = [{<<"a">>, 3}, {<<"b">>, 2}, {<<"c">>, 1}],
+    P2 = [{<<"a">>, 3}, {<<"b">>, 2}, {<<"d">>, 1}],
+    P3 = [{<<"a">>, 3}, {<<"a">>, 2}, {<<"d">>, 1}],
+    ?assertEqual({0,[{scale,<<"path">>,0,0,10}]},
+                 match(test_hypervisort(),
+                       fun test_getter/2,
+                       [{'scale-distance', P1, <<"path">>, 0, 10}])),
+    ?assertEqual({0,[{scale,<<"path">>,2,0,10}]},
+                 match(test_hypervisort(),
+                       fun test_getter/2,
+                       [{'scale-distance', P2, <<"path">>, 0, 10}])),
+    ?assertEqual({0,[{scale,<<"path">>,6,0,10}]},
+                 match(test_hypervisort(),
+                       fun test_getter/2,
+                       [{'scale-distance', P3, <<"path">>, 0, 10}])).
+
 min_max_distance_test() ->
     P1 = [{<<"a">>, 3}, {<<"b">>, 2}, {<<"c">>, 1}],
     P2 = [{<<"a">>, 3}, {<<"b">>, 2}, {<<"d">>, 1}],
@@ -545,15 +590,5 @@ min_max_distance_test() ->
                        fun test_getter/2,
                        [{must, {'min-distance', P3}, <<"path">>, 7}])),
     ok.
-
-distance_test() ->
-    P1 = [{a, 1}, {b, 2}, {c, 3}],
-    P2 = [{a, 1}, {d, 4}, {c, 5}],
-    P3 = [{a, 1}, {b, 2}, {d, 4}],
-    ?assertEqual(6, distance([], P1)),
-    ?assertEqual(0, distance(P1, P1)),
-    ?assertEqual(14, distance(P1, P2)),
-    ?assertEqual(7, distance(P1, P3)).
-
 
 -endif.
