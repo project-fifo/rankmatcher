@@ -22,7 +22,7 @@
 -type path() :: [{binary(), integer()}].
 
 -type rankmatcher_flat_condition() ::
-        '=<' | '>' | '=<' | '<' | '=:=' | '=/='.
+        '>=' | '>' | '=<' | '<' | '=:=' | '=/='.
 
 -type rankmatcher_set_condition() ::
         'subset' | 'superset' | 'disjoint' | 'element' | 'oneof'.
@@ -51,18 +51,21 @@
         {'rand', Min::integer(), Max::integer()} |
         {'scale', Attribute::binary(), Low::integer(), High::integer()} |
         {'scale-distance', Path::path(), Attribute::binary(), Low::integer(), High::integer()} |
-        {Weight::rankmatcher_weighting(), Attribute::binary(),
+        {Weight::rankmatcher_weighting(),
          Condituion::rankmatcher_flat_condition(),
+         Attribute::binary(),
          Reference::rankmatcher_flat_reference()} |
-        {Weight::rankmatcher_weighting(), Attribute::binary(),
+        {Weight::rankmatcher_weighting(),
          Condituion::rankmatcher_set_condition(),
+         Attribute::binary(),
          Reference::rankmatcher_set_reference()} |
-        {Weight::rankmatcher_weighting(), Attribute::binary(),
+        {Weight::rankmatcher_weighting(),
          Condituion::rankmatcher_dist_condition(),
+         Attribute::binary(),
          Reference::rankmatcher_dist_reference()} |
         {Weight::rankmatcher_weighting(),
-         Permission::[binary() | {binary(), binary()}],
          Condituion::rankmatcher_permission_condition(),
+         Permission::[binary() | {binary(), binary()}],
          Reference::rankmatcher_permission_reference()}.
 
 -export_type([rankmatcher_rule/0]).

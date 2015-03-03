@@ -7,7 +7,7 @@ compile:
 	$(REBAR) compile
 
 test:
-	$(REBAR) eunit
+	$(REBAR) skip_deps=true eunit
 
 clean:
 	$(REBAR) clean
