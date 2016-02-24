@@ -81,7 +81,9 @@ apply_scales([{{_, [{scale, _, V, _, _} | _]}, _} | _] = Res) ->
     apply_scales(R);
 
 apply_scales([{{_, [{random, _, _} | _]}, _} | _] = Res) ->
-    random:seed(erlang:now()),
+    random:seed(erlang:phash2([node()]),
+                erlang:monotonic_time(),
+                erlang:unique_integer()),
     apply_scales(apply_random(Res)).
 
 apply_scale([{{N, [{scale, _, V, Low, High} | RScales] }, Key} | R],
@@ -210,10 +212,17 @@ match(Element, Getter, {{'min-distance', Path}, Resource, Value}) ->
 match(Element, Getter, {{'max-distance', Path}, Resource, Value}) ->
     distance(Path, Getter(Element, Resource)) =< Value;
 
+match(_Element, _Getter, {'subset', _Resource, []}) ->
+    true;
 match(Element, Getter, {'subset', Resource, Value}) ->
-    ordsets:is_subset(
-      ordsets:from_list(Value),
-      ordsets:from_list(Getter(Element, Resource)));
+    case Getter(Element, Resource) of
+        <<>> ->
+            false;
+        R ->
+            ordsets:is_subset(
+              ordsets:from_list(Value),
+              ordsets:from_list(R))
+    end;
 
 match(Element, Getter, {'superset', Resource, Value}) ->
     ordsets:is_subset(

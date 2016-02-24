@@ -1,2 +1,1 @@
-[{<<"fqc">>,{pkg,<<"fqc">>,<<"0.1.5">>},1},
- {<<"libsnarlmatch">>,{pkg,<<"libsnarlmatch">>,<<"0.1.5">>},0}].
+[{<<"libsnarlmatch">>,{pkg,<<"libsnarlmatch">>,<<"0.1.7">>},0}].
