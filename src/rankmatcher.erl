@@ -214,32 +214,58 @@ match(Element, Getter, {{'max-distance', Path}, Resource, Value}) ->
 
 match(_Element, _Getter, {'subset', _Resource, []}) ->
     true;
-match(Element, Getter, {'subset', Resource, Value}) ->
+match(Element, Getter, {'subset', Resource, Value})
+  when is_list(Value) ->
     case Getter(Element, Resource) of
-        <<>> ->
-            false;
-        R ->
+        Elements when is_list(Elements) ->
             ordsets:is_subset(
               ordsets:from_list(Value),
-              ordsets:from_list(R))
+              ordsets:from_list(Elements));
+        _ ->
+            <<>>
+    end;
+match(_Element, _Getter, {'subset', _Resource, _}) ->
+    false;
+
+match(Element, Getter, {'superset', Resource, Value})
+  when is_list(Value) ->
+    case Getter(Element, Resource) of
+        Elements when is_list(Elements) ->
+            ordsets:is_subset(
+              ordsets:from_list(Elements),
+              ordsets:from_list(Value));
+        _ ->
+            false
     end;
 
-match(Element, Getter, {'superset', Resource, Value}) ->
-    ordsets:is_subset(
-      ordsets:from_list(Getter(Element, Resource)),
-      ordsets:from_list(Value));
+match(_Element, _Getter, {'superset', _Resource, _Value}) ->
+    false;
 
-match(Element, Getter, {'disjoint', Resource, Value}) ->
-    ordsets:is_disjoint(
-      ordsets:from_list(Value),
-      ordsets:from_list(Getter(Element, Resource)));
+match(Element, Getter, {'disjoint', Resource, Value})
+  when is_list(Value) ->
+    case Getter(Element, Resource) of
+        Elements when is_list(Elements) ->
+            ordsets:is_disjoint(
+              ordsets:from_list(Value),
+              ordsets:from_list(Elements));
+        _ ->
+            false
+    end;
+
+match(_Element, _Getter, {'disjoint', _Resource, _Value}) ->
+    false;
 
 match(Element, Getter, {'element', Resource, Value}) ->
-    ordsets:is_element(
-      Value,
-      ordsets:from_list(Getter(Element, Resource)));
+    case Getter(Element, Resource) of
+        Elements when is_list(Elements) ->
+            ordsets:is_element(
+              Value,
+              ordsets:from_list(Elements));
+        _ ->
+            false
+    end;
 
-match(Element, Getter, {'oneof', Resource, Value}) ->
+match(Element, Getter, {'oneof', Resource, Value}) when is_list(Value) ->
     ordsets:is_element(
       Getter(Element, Resource),
       ordsets:from_list(Value));
