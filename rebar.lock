@@ -1,1 +1,6 @@
-[{<<"libsnarlmatch">>,{pkg,<<"libsnarlmatch">>,<<"0.1.7">>},0}].
+{"1.1.0",
+[{<<"libsnarlmatch">>,{pkg,<<"libsnarlmatch">>,<<"0.1.7">>},0}]}.
+[
+{pkg_hash,[
+ {<<"libsnarlmatch">>, <<"CB58863E653406EAC5736E1F81EE8AA9BC75D906464D3BE63F22C5929500BA8C">>}]}
+].

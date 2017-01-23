@@ -81,9 +81,7 @@ apply_scales([{{_, [{scale, _, V, _, _} | _]}, _} | _] = Res) ->
     apply_scales(R);
 
 apply_scales([{{_, [{random, _, _} | _]}, _} | _] = Res) ->
-    random:seed(erlang:phash2([node()]),
-                erlang:monotonic_time(),
-                erlang:unique_integer()),
+    rand:seed(exsplus),
     apply_scales(apply_random(Res)).
 
 apply_scale([{{N, [{scale, _, V, Low, High} | RScales] }, Key} | R],
@@ -108,7 +106,7 @@ apply_random([]) ->
     [];
 
 apply_random([{{N, [{random, Min, Max} | RScales] }, Key} | R]) ->
-    Rand = Min + random:uniform(Max - Min) -1,
+    Rand = Min + rand:uniform(Max - Min) -1,
     [{{N + Rand, RScales}, Key} | apply_random(R)].
 
 
